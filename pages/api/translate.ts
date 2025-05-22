@@ -1,5 +1,5 @@
-import { TranslateBody } from '@/types/types';
-import { OpenAIStream } from '@/utils';
+import { TranslateBody } from '../../types/types.js';
+import { OpenAIStream } from '../../utils/index.js';
 
 export const config = {
   runtime: 'edge',
