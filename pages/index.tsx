@@ -1,225 +1,134 @@
-import { APIKeyInput } from '@/components/APIKeyInput';
-import { CodeBlock } from '@/components/CodeBlock';
-import { LanguageSelect } from '@/components/LanguageSelect';
-import { ModelSelect } from '@/components/ModelSelect';
-import { TextBlock } from '@/components/TextBlock';
-import { OpenAIModel, TranslateBody } from '@/types/types';
-import Head from 'next/head';
-import { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import TabList from '../components/TabList';
+import Switch from '../components/Switch';
+import { GridIcon, ListIcon, StarIcon, SendIcon, PlusIcon } from '../components/Icons'
 
+ 
 export default function Home() {
-  const [inputLanguage, setInputLanguage] = useState<string>('JavaScript');
-  const [outputLanguage, setOutputLanguage] = useState<string>('Python');
-  const [inputCode, setInputCode] = useState<string>('');
-  const [outputCode, setOutputCode] = useState<string>('');
-  const [model, setModel] = useState<OpenAIModel>('gpt-3.5-turbo');
-  const [loading, setLoading] = useState<boolean>(false);
-  const [hasTranslated, setHasTranslated] = useState<boolean>(false);
-  const [apiKey, setApiKey] = useState<string>('');
+  const [mainActiveTab, setMainActiveTab] = useState('grid');
+  const [stashActiveTab, setStashActiveTab] = useState('about');
+  const [aiActionsEnabled, setAiActionsEnabled] = useState(false);
+  const [message, setMessage] = useState('');
 
-  const handleTranslate = async () => {
-    const maxCodeLength = model === 'gpt-3.5-turbo' ? 6000 : 12000;
+  const mainTabs = [
+    { id: 'grid', label: '', icon: <GridIcon /> },
+    { id: 'list', label: '', icon: <ListIcon className="text-gray-600" /> },
+  ];
 
-    if (!apiKey) {
-      alert('Please enter an API key.');
-      return;
-    }
-
-    if (inputLanguage === outputLanguage) {
-      alert('Please select different languages.');
-      return;
-    }
-
-    if (!inputCode) {
-      alert('Please enter some code.');
-      return;
-    }
-
-    if (inputCode.length > maxCodeLength) {
-      alert(
-        `Please enter code less than ${maxCodeLength} characters. You are currently at ${inputCode.length} characters.`,
-      );
-      return;
-    }
-
-    setLoading(true);
-    setOutputCode('');
-
-    const controller = new AbortController();
-
-    const body: TranslateBody = {
-      inputLanguage,
-      outputLanguage,
-      inputCode,
-      model,
-      apiKey,
-    };
-
-    const response = await fetch('/api/translate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      signal: controller.signal,
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      setLoading(false);
-      alert('Something went wrong.');
-      return;
-    }
-
-    const data = response.body;
-
-    if (!data) {
-      setLoading(false);
-      alert('Something went wrong.');
-      return;
-    }
-
-    const reader = data.getReader();
-    const decoder = new TextDecoder();
-    let done = false;
-    let code = '';
-
-    while (!done) {
-      const { value, done: doneReading } = await reader.read();
-      done = doneReading;
-      const chunkValue = decoder.decode(value);
-
-      code += chunkValue;
-
-      setOutputCode((prevCode) => prevCode + chunkValue);
-    }
-
-    setLoading(false);
-    setHasTranslated(true);
-    copyToClipboard(code);
-  };
-
-  const copyToClipboard = (text: string) => {
-    const el = document.createElement('textarea');
-    el.value = text;
-    document.body.appendChild(el);
-    el.select();
-    document.execCommand('copy');
-    document.body.removeChild(el);
-  };
-
-  const handleApiKeyChange = (value: string) => {
-    setApiKey(value);
-
-    localStorage.setItem('apiKey', value);
-  };
-
-  useEffect(() => {
-    if (hasTranslated) {
-      handleTranslate();
-    }
-  }, [outputLanguage]);
-
-  useEffect(() => {
-    const apiKey = localStorage.getItem('apiKey');
-
-    if (apiKey) {
-      setApiKey(apiKey);
-    }
-  }, []);
+  const stashTabs = [
+    { id: 'about', label: 'About' },
+    { id: 'features', label: 'Features' },
+    { id: 'security', label: 'Security' },
+  ];
 
   return (
-    <>
-      <Head>
-        <title>Code Translator</title>
-        <meta
-          name="description"
-          content="Use AI to translate code from one language to another."
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+        <h1 className="text-lg font-semibold text-black">Agents</h1>
+        <TabList
+          tabs={mainTabs}
+          activeTab={mainActiveTab}
+          onTabChange={setMainActiveTab}
+          className="w-25"
         />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-      <div className="flex h-full min-h-screen flex-col items-center bg-[#0E1117] px-4 pb-20 text-neutral-200 sm:px-10">
-        <div className="mt-10 flex flex-col items-center justify-center sm:mt-20">
-          <div className="text-4xl font-bold">AI Code Translator</div>
-        </div>
+      </div>
 
-        <div className="mt-6 text-center text-sm">
-          <APIKeyInput apiKey={apiKey} onChange={handleApiKeyChange} />
-        </div>
-
-        <div className="mt-2 flex items-center space-x-2">
-          <ModelSelect model={model} onChange={(value) => setModel(value)} />
-
-          <button
-            className="w-[140px] cursor-pointer rounded-md bg-violet-500 px-4 py-2 font-bold hover:bg-violet-600 active:bg-violet-700"
-            onClick={() => handleTranslate()}
-            disabled={loading}
-          >
-            {loading ? 'Translating...' : 'Translate'}
-          </button>
-        </div>
-
-        <div className="mt-2 text-center text-xs">
-          {loading
-            ? 'Translating...'
-            : hasTranslated
-            ? 'Output copied to clipboard!'
-            : 'Enter some code and click "Translate"'}
-        </div>
-
-        <div className="mt-6 flex w-full max-w-[1200px] flex-col justify-between sm:flex-row sm:space-x-4">
-          <div className="h-100 flex flex-col justify-center space-y-2 sm:w-2/4">
-            <div className="text-center text-xl font-bold">Input</div>
-
-            <LanguageSelect
-              language={inputLanguage}
-              onChange={(value) => {
-                setInputLanguage(value);
-                setHasTranslated(false);
-                setInputCode('');
-                setOutputCode('');
-              }}
+      {/* Main Content Area */}
+      <div className="flex flex-col h-[calc(100vh-65px)]">
+        {/* Top Section - Cult Prompt Stash */}
+        <div className="flex-none p-12">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 max-w-2xl mx-auto">
+            <h2 className="text-2xl font-semibold bg-gradient-to-b from-gray-800 to-gray-900 bg-clip-text text-transparent mb-6">
+              Cult Prompt Stash
+            </h2>
+            
+            <TabList
+              tabs={stashTabs}
+              activeTab={stashActiveTab}
+              onTabChange={setStashActiveTab}
+              className="mb-8 max-w-md"
             />
-
-            {inputLanguage === 'Natural Language' ? (
-              <TextBlock
-                text={inputCode}
-                editable={!loading}
-                onChange={(value) => {
-                  setInputCode(value);
-                  setHasTranslated(false);
-                }}
-              />
-            ) : (
-              <CodeBlock
-                code={inputCode}
-                editable={!loading}
-                onChange={(value) => {
-                  setInputCode(value);
-                  setHasTranslated(false);
-                }}
-              />
-            )}
+            
+            <div className="text-gray-700 leading-relaxed">
+              Prompt Stash is a local-first template built for storing and crafting prompts. Inspired<br />
+              by the anthropic prompt eval tool.
+            </div>
           </div>
-          <div className="mt-8 flex h-full flex-col justify-center space-y-2 sm:mt-0 sm:w-2/4">
-            <div className="text-center text-xl font-bold">Output</div>
+        </div>
 
-            <LanguageSelect
-              language={outputLanguage}
-              onChange={(value) => {
-                setOutputLanguage(value);
-                setOutputCode('');
-              }}
-            />
+        {/* Divider */}
+        <div className="h-px bg-gray-200 opacity-50" />
 
-            {outputLanguage === 'Natural Language' ? (
-              <TextBlock text={outputCode} />
-            ) : (
-              <CodeBlock code={outputCode} />
-            )}
+        {/* Bottom Section - Prompt Agent & Chat */}
+        <div className="flex-1 bg-white p-4">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 h-full max-w-4xl mx-auto">
+            {/* Agent Icon and Header */}
+            <div className="flex items-center mb-6">
+              <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mr-6">
+                <StarIcon className="text-gray-700" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold text-black mb-2">Prompt Agent</h2>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-black">Enable AI Actions</span>
+                  <Switch
+                    checked={aiActionsEnabled}
+                    onChange={setAiActionsEnabled}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Agent Tools Fieldset */}
+            <div className="mb-8">
+              <fieldset className="border border-gray-300 rounded-lg p-4 relative">
+                <legend className="px-2 text-sm font-medium text-black bg-white">
+                  Enabled Agent Tools
+                </legend>
+                <p className="text-sm text-black mt-2">
+                  Use @ to select ai actions (all are on by default)
+                </p>
+              </fieldset>
+            </div>
+
+            {/* Chat Interface */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-end space-x-3">
+                {/* Message Input */}
+                <div className="flex-1 relative">
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Send a message."
+                    className="w-full h-24 p-4 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col space-y-2">
+                  <button className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors">
+                    <SendIcon className="w-4 h-4 text-black" />
+                  </button>
+                  <button className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors">
+                    <PlusIcon className="w-4 h-4 text-black" />
+                  </button>
+                </div>
+
+                {/* Send Button */}
+                <button
+                  className={`px-6 py-2 bg-gray-100 text-black rounded-lg font-medium transition-all hover:bg-gray-200 ${
+                    !message.trim() ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                  disabled={!message.trim()}
+                >
+                  <SendIcon className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
